@@ -109,7 +109,22 @@
     commentstyle=\color{Gray}\emph,
     keywordstyle=\color{darkgray}\bfseries
 }
-
+\usepackage{listings-rust}
+\lstdefinestyle{listingcode_rust}{
+    language=Rust,
+    basicstyle=\setmonofont\small,
+    numbers=left, numberstyle=\tiny, stepnumber=5, firstnumber=1, numberfirstline=false,
+    frame=tb,
+    tabsize=2,
+    columns=fixed,
+    showstringspaces=false,
+    showtabs=false,
+    showspaces=false,
+    keepspaces,
+    upquote=true,
+    commentstyle=\color{Gray}\emph,
+    keywordstyle=\color{darkgray}\bfseries
+}
 
 \usepackage{titlesec}
 \newfontfamily\urbitfont{Urbit Sans TT SemiBold}
