@@ -1,6 +1,7 @@
 \documentclass[twoside]{article}
 
 \usepackage{ustj}
+\usepackage{subcaption}
 
 \addbibresource{mss.bib}
 
@@ -37,7 +38,8 @@
 \thispagestyle{firststyle}
 
 \begin{abstract}
-  WebAssembly is a low-level language for a portable virtual machine. Wasm is designed to be a compilation target for a variety of programming languages and its design is hardware independent and relatively simple, making its support ubiquitous in modern browsers. Its simple design made it a perfect first candidate for a first emulator of an conventional computational system on a novel functional computer: Urbit. In this paper I discuss the current state of the \texttt{urwasm} project and some technical details, as well as describe the strategy to jet the interpreter of a state machine in a functional environment.
+\noindent
+WebAssembly is a low-level language for a portable virtual machine. Wasm is designed to be a compilation target for a variety of programming languages and its design is hardware independent and relatively simple, making its support ubiquitous in modern browsers. Its simple design made it a perfect first candidate for a first emulator of an conventional computational system on a novel functional computer: Urbit. In this paper I discuss the current state of the \texttt{urwasm} project and some technical details, as well as describe the strategy to jet the interpreter of a state machine in a functional environment.
 \end{abstract}
 
 % We will adjust page numbering in final editing.
@@ -82,19 +84,34 @@ This article first describes the implementation of the interpreter in \texttt{ur
 The strategy for interpreting Wasm expressions was to model each instruction as a function
 
 $$
-\text{local-state} \rightarrow \text{local-state}\text{,}
+\text{\texttt{local-state}} \rightarrow \text{\texttt{local-state}}\text{,}
 $$
 
-where $\text{local-state}$ is a noun which describes the state of the interpreter at any point during the computation: stack and local values, linear memory, and so forth. An expression is a list of instructions, and can be modeled as a composition of all instructions in the list, which also makes it a function from $\text{local-state}$ to $\text{local-state}$. Most of the Wasm instructions were implemented as Hoon gates with that type, while five instructions (\lstinline[style=inlinecode]{call}, \lstinline[style=inlinecode]{call_indirect}, \lstinline[style=inlinecode]{block}, \lstinline[style=inlinecode]{loop}, and \lstinline[style=inlinecode]{eval}) were treated directly in the evaluation loop.
+\noindent
+where $\text{\texttt{local-state}}$ is a noun which describes the state of the interpreter at any point during the computation: stack and local values, linear memory, and so forth. An expression is a list of instructions, and can be modeled as a composition of all instructions in the list, which also makes it a function from $\text{\texttt{local-state}}$ to $\text{\texttt{local-state}}$. Most of the Wasm instructions were implemented as Hoon gates with that type, while five instructions (\lstinline[style=inlinecode]{call}, \lstinline[style=inlinecode]{call_indirect}, \lstinline[style=inlinecode]{block}, \lstinline[style=inlinecode]{loop}, and \lstinline[style=inlinecode]{eval}) were treated directly in the evaluation loop.
 
+\sloppy
 The evaluation loop consists mainly of two functions: \lstinline[style=inlinecode]{++eval} and \lstinline[style=inlinecode]{++apply}. \lstinline[style=inlinecode]{++eval} takes an expression and a \lstinline[style=inlinecode]{local-state} to produce a \lstinline[style=inlinecode]{local-state}. It pops an instruction from the expression and applies it to the local state with \lstinline[style=inlinecode]{++apply}, stopping if it reaches the end of the list or if an instruction triggered execution flow navigation. For example, the \lstinline[style=inlinecode]{return} instruction causes \lstinline[style=inlinecode]{++eval} to stop applying the rest of the instructions and return the local state as is, with the branching coordinate contained in the local state.
 
-TODO figure
+The \lstinline[style=inlinecode]{++apply} gate takes an instruction and \lstinline[style=inlinecode]{local-state}, returning \lstinline[style=inlinecode]{local-state}. While for most instructions it finds an appropriate gate \lstinline[style=inlinecode]{$-(local-state local-state)} and applies it to the given local state, in the case of the five instructions listed above it instead calls \lstinline[style=inlinecode]{++eval} on the body of those instructions. Thus stack frames are divided not with a label value, as in the formal specification of Wasm, but with the depth of mutual recursion of \lstinline[style=inlinecode]{++eval} (Figure \ref{fig:uw-eval}) and \lstinline[style=inlinecode]{++apply} (Figure \ref{fig:uw-apply}).
 
-The \lstinline[style=inlinecode]{++apply} gate takes an instruction and \lstinline[style=inlinecode]{local-state}, returning \lstinline[style=inlinecode]{local-state}. While for most instructions it finds an appropriate gate \lstinline[style=inlinecode]{$-(local-state local-state)} and applies it to the given local state, in the case of the five instructions listed above it instead calls \lstinline[style=inlinecode]{++eval} on the body of those instructions. Thus stack frames are divided not with a label value, as in the formal specification of Wasm, but with the depth of mutual recursion of \lstinline[style=inlinecode]{++eval} and \lstinline[style=inlinecode]{++apply}.
+\begin{figure}[htbp]
+  % \centering
+  \begin{subfigure}{\textwidth}
+    \includegraphics[width=\textwidth]{img/uw-eval}
+    \caption{\lstinline[style=inlinecode]{++eval} data flow.}
+    \label{fig:uw-eval}
+  \end{subfigure}
+  \\ ~ \\ ~ \\
+  \begin{subfigure}{\textwidth}
+    \includegraphics[width=\textwidth]{img/uw-apply}
+    \caption{\lstinline[style=inlinecode]{++apply} data flow.  Some details like entering/exiting frames are elided.}
+    \label{fig:uw-apply}
+  \end{subfigure}
+\caption{Data flow in the \texttt{urwasm} interpreter.}
+\end{figure}
 
-TODO figure
-
+\sloppy
 The gates above are internal; the outside caller will typically interact via two other gates, \lstinline[style=inlinecode]{++prep} and \lstinline[style=inlinecode]{++invoke}. \lstinline[style=inlinecode]{++prep} instantiates the module: it loads the data segments into the linear memory, instantiates global values, and runs a start function if specified. The product of this gate is either \lstinline[style=inlinecode]{global-state}, which describes the state of the Wasm module in between function invocations, or a block on an unresolved import, or a crash or “trap” in WebAssembly terms.
 
 \lstinline[style=inlinecode]{++invoke} takes a name of an exported function, input values with type annotation and \lstinline[style=inlinecode]{global-state}. It performs a typecheck on the supplied values and calls an appropriate function. The result (as with \lstinline[style=inlinecode]{++prep}) either succeeds with output values and updated state, or blocks/traps.
@@ -104,7 +121,7 @@ The gates above are internal; the outside caller will typically interact via two
 
 The state of an Urbit computer, as already mentioned above, is a pure function of its stream of events with the lifecycle function defined in Nock. No information other than the event log may impact the computation of this state, including the hardware on which the interpreter runs or the implementation details of the interpreter. For a Wasm interpreter in Nock to be practical it needs to be paired with some fast implementation of the Wasm interpreter in another language, and the equivalence of both algorithms must to be confirmed. In this way, the Urbit computer can be a practical personal server without violating its simple definition: the code of functions in Nock must be sufficient for an Urbit programmer to reason about the system.
 
-This demand of equivalence, however, poses some difficulties. Some instructions of Wasm are defined non-deterministically. For example, the \lstinline[style=inlinecode]{memory.grow} instruction can return -1 and not increase the length of the linear memory even if the maximum size of the memory described in the module file is not exceeded. The choice is left to the embedder, which can opt to keep the size of the memory buffer based on its resources.
+This demand of equivalence, however, poses some difficulties. Some instructions of Wasm are defined non-determinis\-tically. For example, the \lstinline[style=inlinecode]{memory.grow} instruction can return -1 and not increase the length of the linear memory even if the maximum size of the memory described in the module file is not exceeded. The choice is left to the embedder, which can opt to keep the size of the memory buffer based on its resources.
 
 In addition, some numerical operators return a set of values; that is, a Wasm VM could return any value from that set. This typically happens with floating-point operators when they are given a NaN value, with the set being defined by the value being a canonical NaN or not.\footnote{Cf. \citet{Davis2024} in this issue.}  Some numerical operators return an empty set of values. In other words, their behaviour is set to be undefined for certain inputs, and those operators are described as partial. This can happen, for example, with the \lstinline[style=inlinecode]{idiv_N} operator when the second operand is equal to zero. The behaviour of Wasm VM is undefined in this case.
 
@@ -121,9 +138,10 @@ Therefore, the Wasm interpreter in \lstinline[style=inlinecode]{urwasm} describe
 
 Some simple programs are included in the test suite. Most of them involve only numerical operations, while one of them calls a Wasm program compiled from Rust source which flips the order of characters in the string. Evaluation of this function requires multiple Wasm function invocations in order to e.g. allocate memory for the input string, and interaction with the global-state to read from and write to linear memory.
 
-When Rust source is compiled, the compiler produces Javascript code which takes care of low-level handling of the state of Wasm runtime. In the case of Wasm interpreter in Hoon, JS code was manually translated to Hoon.
+When Rust source is compiled, the compiler produces Java\-Script code which takes care of low-level handling of the state of Wasm runtime. In the case of Wasm interpreter in Hoon, JS code was manually translated to Hoon.
 
-In addition, some other programs were run successfully. WebAssembly text format parsing in \texttt{urwasm} is implemented by composing the \texttt{wat2wasm} parser from wat Rust crate with a binary parser in Hoon. Another example was presented at the Urbit Assembly in October 2023: an algorithm to simplify debts between a group of people, using \texttt{FlowGraph} Dinic algorithm for maximum flow computation from the \lstinline[style=inlinecode]{contest_algorithms} Rust crate \citep{Afonin2023}.
+\sloppy
+In addition, some other programs were run successfully. WebAssembly text format parsing in \texttt{urwasm} is implemented by composing the \texttt{wat2wasm} parser from the \texttt{wat} Rust crate with a binary parser in Hoon. Another example was presented at the Urbit Assembly in October 2023: an algorithm to simplify debts between a group of people, using the \texttt{FlowGraph} Dinic algorithm for maximum flow computation from the \lstinline[style=inlinecode]{contest_algorithms} Rust crate \citep{Afonin2023}.
 
 These cited examples highlight the incredible inefficiency of the interpreter: it takes about a second to flip a string with 27 characters, and about a minute to parse a small Wasm binary with compiled \texttt{wat2wasm}. While there is most likely room for improvement, the Hoon code serves first and foremost as a formal specification of a deterministic Wasm VM, translated from the mix of pseudocode and mathematical formulas to a tightly-specified language. This specification would then serve for the verification of jet correctness.
 
@@ -202,9 +220,9 @@ Maybe this is the perfect option in the long term, but this option is unfeasible
 
 The next solution is to add serializer and deserializer functions to the jet of the \lstinline[style=inlinecode]{++invoke} arm, which would convert the noun representation of the state of the module to a representation legible to the jetting interpreter before evaluating the invoked function, and convert it back into a noun when the computation is finished. However, having to translate the state between two models twice for each function invocation would impose a lot of computational overhead.
 
-\subsection{Serialization/deserialization in the Hoon specification}
+\subsection{Serialization/deserialization in Hoon}
 
-A less obvious variation of the method above is to put the de/serializer in the Hoon code of \lstinline[style=inlinecode]{++invoke}, and have the jetted gate take and return module state in the same representation as in the Wasm interpreter in C. The jet would then operate on the given state directly, without having to translate the state of the interpreter. Here the problem is that the implementation strategy leaks into the formal specification, making Hoon code jet-dependent. Replacement of the jetting Wasm runtime, including in the case of switching from Vere to Ares, would make us have to change the Hoon code, which I find to be antithetical to the Urbit project itself.
+A less obvious variation is to put the de/serializer in the Hoon code of \lstinline[style=inlinecode]{++invoke}, and have the jetted gate take and return module state in the same representation as in the Wasm interpreter in C. The jet would then operate on the given state directly, without having to translate the state of the interpreter. Here the problem is that the implementation strategy leaks into the formal specification, making Hoon code jet-dependent. Replacement of the jetting Wasm runtime, including in the case of switching from Vere to Ares, would make us have to change the Hoon code, which I find to be antithetical to the Urbit project itself.
 
 In addition, current model of jetting in both Vere and Ares requires that the core produced by the jetted arm is left read-only, without modification, so the output of the jet function cannot overwrite the core's sample. That would require the interpreter to copy the entire state of the module and operate on that, which creates prohibitive overhead for memory-heavy computations, like running a Linux VM.
 
@@ -237,10 +255,11 @@ This gate accepts a binary file of a Wasm module and a list of actions to be per
   escapeinside=``,
   label={lst:lia}
 ]
-# Lia (Language for Invocation of Assembly) scripting language
-#
+# Lia (Language for Invocation of Assembly) scripting
+#   language
 # "add_to_stack_pointer", "malloc" and "process"
-# are functions exported by the wasm module from Rust example above
+# are functions exported by the wasm module from Rust
+# example above
 #
 string0 = "Hello world".to_octs
 retptr = __wbindgen_add_to_stack_pointer(-16)
@@ -323,12 +342,13 @@ As for the cache reclamation, \lstinline[style=inlinecode]{++lia} could include 
 
 \section{Next Steps}
 
-What is the roadmap forward for the \texttt{urwasm} project?  The first priority is to add unit tests and module validation in Hoon.  This will allow us to verify the correctness of the interpreter and to ensure that the jetting process is successful.  The next stage will consist of enabling caching in teh jet of \lstinline[style=inlinecode]{++lia} and adding a parser from text to \lstinline[style=inlinecode]{(list action)}.  This will enable us to construct a Lia interpreter in Hoon, jetted with the Lia interpreter in C/Rust.  This facilitates a default Gall agent interface to interact with Lia and enable building Gall apps in conventional languages.  Finally, we will add Wasi support and Lia generation to common Wasm compilers in the same way they generate JS wrappers for the modules.
+What is the roadmap forward for the \texttt{urwasm} project?  The first priority is to add unit tests and module validation in Hoon.  This will allow us to verify the correctness of the interpreter and to ensure that the jetting process is successful.  The next stage will consist of enabling caching in the jet of \lstinline[style=inlinecode]{++lia} and adding a parser from text to \lstinline[style=inlinecode]{(list action)}.  This will enable us to construct a Lia interpreter in Hoon, jetted with the Lia interpreter in C/Rust.  This facilitates a default Gall agent interface to interact with Lia and enable building Gall apps in conventional languages.  Finally, we will add Wasi support and Lia generation to common Wasm compilers in the same way they generate JS wrappers for the modules.
 
 
 \section{Conclusion}
 
-This paper presented a novel method of modeling state machines in Nock and jetting of the modeling algorithm. In this method the state is represented implicitly through a list of actions performed on the initialized state of the machine, and the state of the jetting emulator of the state machine is kept as a cache identified with the list of actions. This gives the interpreter full computational speed due to lack of overhead caused by translating the state from noun representation to the jetting representation and back and by the fact that the jetting function is free to edit the state in place, as long as it updates the naming tag of the cache.
+This paper presents a novel method of modeling state machines in Nock and jetting the associated modeling algorithm. In this method the state is represented implicitly through a list of actions performed on the initialized state of the machine, and the state of the jetting emulator of the state machine is kept as a cache identified with the list of actions. This gives the interpreter full computational speed due to lack of overhead caused by translating the state from noun representation to the jetting representation and back and by the fact that the jetting function is free to edit the state in place, as long as it updates the naming tag of the cache.  \tombstone{}
 
+\selectlanguage{USenglish}
 \printbibliography
 \end{document}

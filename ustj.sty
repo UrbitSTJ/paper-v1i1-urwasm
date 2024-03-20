@@ -76,6 +76,7 @@
     showspaces=false,
     keepspaces,
     upquote=true,
+    breaklines=true,
     commentstyle=\color{Gray}\emph,
     keywordstyle=\color{darkgray}\bfseries
 }
@@ -109,6 +110,36 @@
     commentstyle=\color{Gray}\emph,
     keywordstyle=\color{darkgray}\bfseries
 }
+\lstdefinelanguage{JavaScript}{
+  keywords={typeof, new, true, false, catch, function, return, null, catch, switch, var, if, in, while, do, else, case, break},
+  keywordstyle=\color{blue}\bfseries,
+  ndkeywords={class, export, boolean, throw, implements, import, this},
+  ndkeywordstyle=\color{darkgray}\bfseries,
+  identifierstyle=\color{black},
+  sensitive=false,
+  comment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  commentstyle=\color{purple}\ttfamily,
+  stringstyle=\color{red}\ttfamily,
+  morestring=[b]',
+  morestring=[b]"
+}
+\lstdefinestyle{listingcode_js}{
+    language=JavaScript,
+    basicstyle=\setmonofont\small,
+    numbers=left, numberstyle=\tiny, stepnumber=5, firstnumber=1, numberfirstline=false,
+    frame=tb,
+    tabsize=2,
+    columns=fixed,
+    showstringspaces=false,
+    showtabs=false,
+    showspaces=false,
+    keepspaces,
+    upquote=true,
+    breaklines=true,
+    commentstyle=\color{Gray}\emph,
+    keywordstyle=\color{darkgray}\bfseries
+}
 \usepackage{listings-rust}
 \lstdefinestyle{listingcode_rust}{
     language=Rust,
@@ -122,6 +153,7 @@
     showspaces=false,
     keepspaces,
     upquote=true,
+    breaklines=true,
     commentstyle=\color{Gray}\emph,
     keywordstyle=\color{darkgray}\bfseries
 }
@@ -136,7 +168,8 @@
 \AtBeginDocument{\renewcommand{\abstractname}{}}
 
 %% Page size
-\usepackage[paperheight=8.5in,paperwidth=5.5in,margin=1in,heightrounded,showframe]{geometry}
+% \usepackage[paperheight=8.5in,paperwidth=5.5in,margin=1in,heightrounded,showframe]{geometry}
+\usepackage[paperheight=8.5in,paperwidth=5.5in,margin=1in,heightrounded]{geometry}
 
 %% Configure first-page footer and later-page header.
 \usepackage{fancyhdr}
@@ -148,8 +181,8 @@
 \newcommand{\github}[1]{\texttt{@#1}}
 
 % Turn off when producing release version.
-\usepackage{lineno}
-\linenumbers
+% \usepackage{lineno}
+% \linenumbers
 
 % Bibliography management
 \usepackage[
@@ -160,9 +193,46 @@
     url=false,
     eprint=false
 ]{biblatex}
-\usepackage[hidelinks]{hyperref}
-%\usepackage{natbib}
-% \usepackage[hyphens]{url}
+\usepackage[hidelinks,breaklinks=true]{hyperref}
+
+% Patch the \bibsetup command to set the bibliography to be ragged-right
+\usepackage{etoolbox}
+\appto{\bibsetup}{\raggedright\small}
+
+% Define a command to check for usera field and use it if available
+\makeatletter
+\newcommand{\iffieldundef}[3]{%
+  \@ifundefined{abx@field@#1}{#2}{#3}%
+}
+\makeatother
+\newcommand{\citeauthorhandle}[1]{%
+  \iffieldundef{usera}
+    {\citeauthor{#1}}
+    {\printfield{usera}}%
+}
+
+% Redefine \citep and \citet
+\renewcommand{\citep}[1]{(\citeauthorhandle{#1}, \citeyear{#1})}
+\renewcommand{\citet}[1]{\citeauthorhandle{#1} (\citeyear{#1})}
+
+% Define a new date format
+\usepackage[USenglish]{babel}
+\DefineBibliographyExtras{USenglish}{%
+  % yyyya format for long dates
+  \protected\def\mkbibdatelong#1#2#3{%
+    \iffieldundef{#1}{}{\stripzeros{\thefield{#1}}}%
+  }%
+  % ~yyyy.mm.dd format for short dates
+  \protected\def\mkbibdateshort#1#2#3{%
+    \textasciitilde
+    \iffieldundef{#1}{}{\stripzeros{\thefield{#1}}}%
+    .%
+    \iffieldundef{#2}{}{\stripzeros{\thefield{#2}}}%
+    .%
+    \iffieldundef{#3}{}{\stripzeros{\thefield{#3}}}%
+  }%
+}
+
 % Define a custom citation command for GitHub PRs
 \DeclareCiteCommand{\citetpr}
   {\usebibmacro{prenote}}
@@ -231,4 +301,14 @@
     {}%
   \usebibmacro{finentry}}
 
+% Define a command to enclose the title in quotation marks
+\newcommand{\quotetitle}[1]{``#1''}
+
+% Use the command to enclose the title for @online and @software entries
+\DeclareFieldFormat[online]{title}{\quotetitle{#1}}
+\DeclareFieldFormat[software]{title}{\quotetitle{#1}}
+
 \newcommand{\tombstone}{\resizebox{!}{\heightof{T}}{\includegraphics{ustj-logo}}}
+
+\hfuzz=0.1pt % Adjust the value as needed
+\hbadness=10000 % This value disables any reporting of overfull boxes
