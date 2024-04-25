@@ -68,11 +68,11 @@ If we desire to run conventional (“Earth”) programs on Urbit, we would have 
 \end{enumerate}
 
 \noindent
-For these reasons, we set out to build a Wasm interpreter native to Urbit: \github{Quodss/urwasm}. As of writing, the project consists of the following components:
+For these reasons, we set out to build a Wasm interpreter native to Urbit (\texttt{Quodss/urwasm}). As of writing, the project consists of the following components:
 
 \begin{enumerate}
   \item  A parser from \texttt{wasm} binary format to a Nock noun;
-  \item  An interpreter, which fully satisfies the Wasm Core Specification from the latest published version \citep{Wasm2024};
+  \item  \sloppy An interpreter, which fully satisfies the Wasm Core Specification from the latest published version \citep{Wasm2024};
   \item  A parser from \texttt{wat} text format to a Nock noun, implemented by calling a Wasm module with a \texttt{wat2wasm} parser and then feeding the result to the binary parser. This parser serves as a testing method and is very slow with the interpreter being unjetted.
 \end{enumerate}
 
@@ -123,7 +123,7 @@ The state of an Urbit computer, as already mentioned above, is a pure function o
 
 This demand of equivalence, however, poses some difficulties. Some instructions of Wasm are defined non-determinis\-tically. For example, the \lstinline[style=inlinecode]{memory.grow} instruction can return -1 and not increase the length of the linear memory even if the maximum size of the memory described in the module file is not exceeded. The choice is left to the embedder, which can opt to keep the size of the memory buffer based on its resources.
 
-In addition, some numerical operators return a set of values; that is, a Wasm VM could return any value from that set. This typically happens with floating-point operators when they are given a NaN value, with the set being defined by the value being a canonical NaN or not.\footnote{Cf. \citet{Davis2024} in this issue.}  Some numerical operators return an empty set of values. In other words, their behaviour is set to be undefined for certain inputs, and those operators are described as partial. This can happen, for example, with the \lstinline[style=inlinecode]{idiv_N} operator when the second operand is equal to zero. The behaviour of Wasm VM is undefined in this case.
+In addition, some numerical operators return a set of values; that is, a Wasm VM could return any value from that set. This typically happens with floating-point operators when they are given a NaN value, with the set being defined by the value being a canonical NaN or not.\footnote{Cf. \citet{Davis2024}, pp. 93–131 in this issue.}  Some numerical operators return an empty set of values. In other words, their behaviour is set to be undefined for certain inputs, and those operators are described as partial. This can happen, for example, with the \lstinline[style=inlinecode]{idiv_N} operator when the second operand is equal to zero. The behaviour of Wasm VM is undefined in this case.
 
 Therefore, the Wasm interpreter in \lstinline[style=inlinecode]{urwasm} describes a deterministic Wasm machine, limited to a subset of behaviors:
 
@@ -148,7 +148,7 @@ These cited examples highlight the incredible inefficiency of the interpreter: i
 
 \section{Jetting}
 
-To jet the interpreter, the gate written in Hoon must be paired with a code in C that must be extensionally equivalent to the Hoon code. In that sense function definition in Hoon would act as a formal mathematical specification of what the interpreter returns, while C code would act as the actual implementation of Wasm runtime by arriving to the same conclusion as Hoon code but faster. The purpose of the Hoon specification is then to provide a test bed for verifying correctness of the interpreter, either by testing or formal analysis of both programs via e.g. the K verification framework (cf. \github{runtimeverification/knock}, \citet{Hjort2023}).
+To jet the interpreter, the gate written in Hoon must be paired with a code in C that must be extensionally equivalent to the Hoon code. In that sense function definition in Hoon would act as a formal mathematical specification of what the interpreter returns, while C code would act as the actual implementation of Wasm runtime by arriving to the same conclusion as Hoon code but faster. The purpose of the Hoon specification is then to provide a test bed for verifying correctness of the interpreter, either by testing or formal analysis of both programs via e.g. the K verification framework (cf. \texttt{runtimeverification/ knock}, \citet{Hjort2023}).
 
 Since Wasm is a portable language for a state machine, each invocation of a function from a Wasm module would either return a successful result with returned values and an updated state, or some flavor of failure (trap or blocking on unresolved external request, e.g. function call of an imported function). This gives us several possible strategies for jetting:
 
@@ -210,7 +210,7 @@ Even for a simple source code the generated Wasm code might require multiple fun
 \noindent
 Multiple invocations are necessary, some with the arguments received from outputs of other invoked functions. Having the access to the state of the module is thus crucial for any practical interpreter. In addition, we may have to read data from the state and save it as a noun, in order to perform I/O on that piece of information, since Arvo may only send effects when the computation of a given event has finalized. While jets could in theory perform system calls during their evaluation, doing so is considered a gross violation of jetting mechanism: jets as functions are supposed to be as pure as possible, to imitate their Nock definitions.
 
-Let us review through our options.
+Let us review our options.
 
 \subsection{Bespoke Wasm interpreter that operates on nouns}
 
@@ -226,16 +226,14 @@ A less obvious variation is to put the de/serializer in the Hoon code of \lstinl
 
 In addition, current model of jetting in both Vere and Ares requires that the core produced by the jetted arm is left read-only, without modification, so the output of the jet function cannot overwrite the core's sample. That would require the interpreter to copy the entire state of the module and operate on that, which creates prohibitive overhead for memory-heavy computations, like running a Linux VM.
 
-\subsection{Higher level interpreting function}
+\subsection{Higher level interpreter function}
 
 This strategy would involve writing a function that takes a Wasm module, a list of operations to be performed and some other parameters, and then jetting this function. No intermediate state would be returned, saving us from having to convert it between different representations. However, a practical jet implementation would have to cache the intermediate state of the interpreter between Arvo events, otherwise it would have to reevaluate the operations each time the jetted function encounters a block on an unresolved import, or if the caller appended new operations to the list to interact with the module.
 
 
 \section{Lia Interpreter}
 
-Let's return to our example with string flipping in Rust. How would our hypothetical higher-level function run the program?
-
-Ignoring imports for now, consider this gate:
+Let's return to our example with string flipping in Rust. How would our hypothetical higher-level function run the program?  Ignoring imports for now, consider this gate:
 
 \begin{lstlisting}[style=listingcode_rust]
 ++  lia
@@ -246,10 +244,10 @@ Ignoring imports for now, consider this gate:
 ::  (...)
 \end{lstlisting}
 
-This gate accepts a binary file of a Wasm module and a list of actions to be performed, and returns either a list of values in the event of successful resolution, or an error. A value here is either a WebAssembly numerical value or a slice of the linear memory called \texttt{octs} in homage to Hoon. To flip a string, we would pass it the module file obtained from the Rust compiler and a list of actions obtained from parsing this code (ignoring \texttt{realloc} for simplicity):
+This gate accepts a binary file of a Wasm module and a list of actions to be performed, and returns either a list of values in the event of successful resolution, or an error. A value here is either a WebAssembly numerical value or a slice of the linear memory called \texttt{octs} in homage to Hoon. To flip a string, we would pass it the module file obtained from the Rust compiler and a list of actions obtained from parsing this code (ignoring \texttt{realloc} for simplicity), as shown in Listing \ref{lst:lia}.
 
 \begin{lstlisting}[
-  float,
+  float=h,
   style=listingcode,
   caption={Lia function to reverse the order of characters in a string using Wasm.  Compare Listings~\ref{lst:rust} and \ref{lst:js}.},
   escapeinside=``,
@@ -284,7 +282,7 @@ Interacting with an instantiated module in the case of \lstinline[style=inlineco
 \begin{lstlisting}[
   float,
   style=listingcode,
-  caption={Upgraded \lstinline[style=inlinecode]{++lia} arm.},
+  caption={Upgraded \texttt{++lia} arm.},
   escapeinside=``,
   label={lst:lia2}
 ]
@@ -308,15 +306,15 @@ Interacting with an instantiated module in the case of \lstinline[style=inlineco
 
 In Listing~\ref{lst:lia2}, we have added details to the block or trap.  Now the interpreter can return a block with \lstinline[style=inlinecode]{%1}, asking for an external reference to be resolved and the result of the resolution to be appended to shop. The interpreter now takes a list of list of values \lstinline[style=inlinecode]{shop}, which represents the resolved Lia imports; \lstinline[style=inlinecode]{ext-func}, which provides definitions for imported functions for a given Wasm module; and \lstinline[style=inlinecode]{diff}, whose contents are appended to an appropriate field.
 
-Notice the difference between imports in Lia and in Wasm: the namespace of the latter is defined with a pair of strings in compliance with the formal specification, and the input parameters of \lstinline[style=inlinecode]{++lia} contain definitions of the imported functions for the Wasm module. Lia imports, on the other hand, are bound to path namespace and are external to \lstinline[style=inlinecode]{++lia}.
+Notice the difference between imports in Lia and in Wasm: the namespace of the latter is defined with a pair of strings in compliance with the formal specification, and the input parameters of \lstinline[style=inlinecode]{++lia} contain definitions of the imported functions for the Wasm module. Lia imports, on the other hand, are bound to a path namespace and are external to \lstinline[style=inlinecode]{++lia}.
 
 In a trivial case the list of actions of a function definition in ext-func would contain a single call to a function which is external to Lia and is named with \lstinline[style=inlinecode]{path}, not \lstinline[style=inlinecode]{(pair cord cord)} like Wasm import functions. In a nontrivial case the list of actions could contain multiple actions to be performed, e.g. a memory read followed by calling a Lia \lstinline[style=inlinecode]{import} function which takes \lstinline[style=inlinecode]{octs}. The purpose here is for the \lstinline[style=inlinecode]{import} calls to be able to surface not only Wasm values but Lia values like \lstinline[style=inlinecode]{octs}, giving us the richness of import calls that we could have with \lstinline[style=inlinecode]{++invoke} jetting model without exposing the entirety of the module's state.
 
 \subsection{Caching of store}
 
-Since Wasm execution is deterministic, then the state of a module, whether in Nock or in the jetting environment, is referentially transparent with regards to the input parameters of Lia. Here diff appears to be semantically useless, since instead of placing changes there we could've placed them directly into a proper field of the sample.
+Since Wasm execution is deterministic, then the state of a module, whether in Nock or in the jetting environment, is referentially transparent with regards to the input parameters of Lia. Here \lstinline[style=inlinecode]{diff} appears to be semantically useless, since instead of placing changes there we could have placed them directly into a proper field of the sample.
 
-But diff is necessary for efficient computations: each time \lstinline[style=inlinecode]{++lia} jet computes something with a Wasm runtime, it will save a cache of Lia interpreter in the jetting environment tagged with a (hash of a) noun \lstinline[style=inlinecode]{[module actions shop ext-func]}. If \lstinline[style=inlinecode]{++lia} is computed later with the same first four arguments, then the jet would first look for a cache, and if it finds one, only compute the diff, either injecting results of Lia import resolution into a suspended jetting Lia interpreter, or performing a list of appended actions. Failing to find a cache, jet of \lstinline[style=inlinecode]{++lia} would do the same thing as \lstinline[style=inlinecode]{++lia} in Hoon: append the \lstinline[style=inlinecode]{diff} to an appropriate field and run the whole thing.
+But \lstinline[style=inlinecode]{diff} is necessary for efficient computations: each time \lstinline[style=inlinecode]{++lia} jet computes something with a Wasm runtime, it will save a cache of Lia interpreter in the jetting environment tagged with a (hash of a) noun \lstinline[style=inlinecode]{[module actions shop ext-func]}. If \lstinline[style=inlinecode]{++lia} is computed later with the same first four arguments, then the jet would first look for a cache, and if it finds one, only compute the diff, either injecting results of Lia import resolution into a suspended jetting Lia interpreter, or performing a list of appended actions. Failing to find a cache, jet of \lstinline[style=inlinecode]{++lia} would do the same thing as \lstinline[style=inlinecode]{++lia} in Hoon: append the \lstinline[style=inlinecode]{diff} to an appropriate field and run the whole thing.
 
 At the price of having to bother with cache reclamation and perhaps slightly longer event log replays we get the possibility of running Wasm runtime almost full speed, without having to de/serialize nouns to structs and vice versa or to copy the state of the Wasm module for every interaction with it. In Nock the state of the Wasm module is represented lazily with the first four parameters of \lstinline[style=inlinecode]{++lia}, while the actual state on which we perform computations exists as a cache.
 
@@ -333,9 +331,9 @@ A typical interaction with \lstinline[style=inlinecode]{++lia} would look like t
 \end{enumerate}
 
 \noindent
-The resolution result is placed into \lstinline[style=inlinecode]{diff}, and ++lia is called again. Next time that same result must be placed directly to shop to get the right cache and avoid recalculating from scratch.
+The resolution result is placed into \lstinline[style=inlinecode]{diff}, and \lstinline[style=inlinecode]{++lia} is called again. Next time that same result must be placed directly to shop to get the right cache and avoid recalculating from scratch.
 
-If succeeded, new actions can be put in diff and \lstinline[style=inlinecode]{++lia} can be called again to continue interacting with the module. After that these new actions must be placed directly to actions on subsequent calls of \lstinline[style=inlinecode]{++lia} to get the right cache.
+If the result is success, new actions can be put in diff and \lstinline[style=inlinecode]{++lia} can be called again to continue interacting with the module. After that these new actions must be placed directly to actions on subsequent calls of \lstinline[style=inlinecode]{++lia} to get the right cache.
 
 As for the cache reclamation, \lstinline[style=inlinecode]{++lia} could include another input parameter hint ignored in Hoon code, that would serve as a hint to the jet on how to handle the cache, e.g. for how long to keep it in the memory. Dojo generators and Gall agents, for example, would likely benefit from different cache reclamation strategies.
 
