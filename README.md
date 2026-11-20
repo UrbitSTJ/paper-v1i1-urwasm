@@ -1,3 +1,11 @@
+<!-- ustj-doi -->
+# The urwasm WebAssembly Interpreter Suite on Urbit
+
+~dozreg-toplud. *Urbit Systems Technical Journal* 1(1), 2024.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24389612.svg)](https://doi.org/10.5281/zenodo.24389612) [Read on urbitsystems.tech](https://urbitsystems.tech/article/v01-i01/the-urwasm-webassembly-interpreter-suite-on-urbit)
+<!-- /ustj-doi -->
+
 # Urbit Systems Technical Journal—Template Repo
 
 Welcome, prospective USTJ author.  Please keep the following in mind:
